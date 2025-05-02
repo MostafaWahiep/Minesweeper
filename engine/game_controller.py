@@ -29,10 +29,13 @@ class GameController:
             changed = self.board.reveal(move.r, move.c)
             self.bus.publish(Event.REVEAL_TILES, self.board.view(), changed)
         else:
-            was_flagged = self.board.flag(move.r, move.c)
-            event = Event.FLAG_TILES if was_flagged else Event.UNFLAG_TILES
-            self.bus.publish(event, self.board.view(), [(move.r, move.c)])
-            
+            try:
+                was_flagged = self.board.flag(move.r, move.c)
+                event = Event.FLAG_TILES if was_flagged else Event.UNFLAG_TILES
+                self.bus.publish(event, self.board.view(), [(move.r, move.c)])
+            except ValueError:
+                pass
+
         if self.board.lost():
             self.state = GameState.LOST
             self.bus.publish(Event.GAME_OVER, self.state)

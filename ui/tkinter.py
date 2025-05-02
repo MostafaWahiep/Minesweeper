@@ -184,13 +184,6 @@ class TkUI(tk.Canvas):
 
     # game-over fireworks
     def _on_game_over(self, outcome: GameState, *_):
-        if self._view:
-            for r in range(self.rows):
-                for c in range(self.cols):
-                    state, _ = self._view[r, c]
-                    if state is CellState.HIDDEN:
-                        self.itemconfig(self._rect[(r, c)], fill=MINE_FILL)
-
         banner_colour = "green" if outcome is GameState.WON else "red"
         self.create_text(
             self.winfo_reqwidth() // 2,

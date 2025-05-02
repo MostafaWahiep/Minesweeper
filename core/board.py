@@ -121,6 +121,9 @@ class Board:
 
         cell = self._grid[row][col]
 
+        if cell.state == CellState.REVEALED:
+            raise ValueError("Invalid move; flagging a revealed cell!")
+
         if cell.state == CellState.HIDDEN:
             cell.state = CellState.FLAGGED
             self._flags += 1

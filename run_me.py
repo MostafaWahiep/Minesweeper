@@ -20,13 +20,12 @@ while counter < 1:
     counter += 1
     board = Board(cfg)
     bus   = EventBus()
-    q     = queue.SimpleQueue()
 
     click_q = SimpleQueue()
 
     root = tk.Tk()
     root.title("Minesweeper")
-    CELL_PX = 20
+    CELL_PX = 23
     ui   = TkUI(root, cfg.rows, cfg.cols, CELL_PX, bus, click_q)
     agent = PrologAgent(board.view(), bus, click_q)
     gc    = GameController(board, bus, agent)
@@ -37,4 +36,3 @@ while counter < 1:
     t1= threading.Thread(target=loop, daemon=True)
     t1.start()
     root.mainloop()
-    t1.join()
