@@ -54,6 +54,7 @@ class TkUI(tk.Canvas):
         bus.subscribe(Event.GAME_OVER,    self._on_game_over)
         bus.subscribe(Event.NEED_GUESS,   self._enable_clicks)
         bus.subscribe(Event.GUESS_DONE,   self._disable_clicks)
+        bus.subscribe(Event.REVEAL_MINE,  self._display_mine)
 
         self.bind("<Button-1>", self._on_left)
         self.bind("<Button-3>", self._on_right)      # Windows/Linux flag
@@ -97,7 +98,7 @@ class TkUI(tk.Canvas):
         x0, y0 = c * self.cpx, r * self.cpx
         return x0, y0, x0 + self.cpx, y0 + self.cpx
 
-    def _init_grid(self, view: BoardView, *_):
+    def _init_grid(self, view: BoardView, *_) -> None:
         """Draw hidden grid once. Safe to call many times."""
         if self._rect:                         # already drawn
             return
@@ -116,60 +117,72 @@ class TkUI(tk.Canvas):
         view: BoardView,
         changed: List[Tuple[int, int]],
         *_,
-    ):
+    ) -> None:
         if not self._rect:
             self._init_grid(view)
 
         self._view = view
+
         for r, c in changed:
             if (r, c) not in self._rect:
                 continue
-            rect_id = self._rect[(r, c)]
 
-            # wipe previous text
-            tid = self._text.pop((r, c), None)
-            if tid:
-                self.delete(tid)
+            rect_id = self._rect[(r, c)]
+            self._clear_text(r, c)
 
             state, num = view[r, c]
             if state is CellState.REVEALED:
-                self.itemconfig(rect_id, fill=REVEALED_FILL)
-                if num:
-                    colour = NUMBER_COLOURS.get(num, "black")
-                    tid = self.create_text(
-                        c * self.cpx + self.cpx // 2,
-                        r * self.cpx + self.cpx // 2,
-                        text=str(num),
-                        font=FONT,
-                        fill=colour,
-                    )
-                    self._text[(r, c)] = tid
-                # flash outline
-                self.itemconfig(rect_id, width=3, outline="gold")
-                self.after(
-                    FLASH_MS,
-                    lambda rid=rect_id: self.itemconfig(
-                        rid, width=1, outline=GRID_OUTLINE
-                    ),
-                )
-
+                self._reveal_tile(r, c, rect_id, num)
             elif state is CellState.FLAGGED:
-                self.itemconfig(rect_id, fill=FLAG_FILL)
-                tid = self.create_text(
-                    c * self.cpx + self.cpx // 2,
-                    r * self.cpx + self.cpx // 2,
-                    text="⚑",
-                    font=FONT,
-                    fill="red",
-                )
-                self._text[(r, c)] = tid
-                self._blink(tid, BLINK_CYCLES)
+                self._flag_tile(r, c, rect_id)
+            else:
+                self._hide_tile(rect_id)
 
-            else:  # hidden again
-                self.itemconfig(rect_id, fill=HIDDEN_FILL, width=1,
-                                outline=GRID_OUTLINE)
 
-    def _blink(self, tid: int, cycles: int):
+    def _clear_text(self, r: int, c: int) -> None:
+        tid = self._text.pop((r, c), None)
+        if tid:
+            self.delete(tid)
+
+
+    def _reveal_tile(self, r: int, c: int, rect_id: int, num: int) -> None:
+        self.itemconfig(rect_id, fill=REVEALED_FILL)
+        if num:
+            colour = NUMBER_COLOURS.get(num, "black")
+            tid = self.create_text(
+                c * self.cpx + self.cpx // 2,
+                r * self.cpx + self.cpx // 2,
+                text=str(num),
+                font=FONT,
+                fill=colour,
+            )
+            self._text[(r, c)] = tid
+
+        self.itemconfig(rect_id, width=3, outline="gold")
+        self.after(
+            FLASH_MS,
+            lambda rid=rect_id: self.itemconfig(rid, width=1, outline=GRID_OUTLINE),
+        )
+
+
+    def _flag_tile(self, r: int, c: int, rect_id: int) -> None:
+        self.itemconfig(rect_id, fill=FLAG_FILL)
+        tid = self.create_text(
+            c * self.cpx + self.cpx // 2,
+            r * self.cpx + self.cpx // 2,
+            text="⚑",
+            font=FONT,
+            fill="red",
+        )
+        self._text[(r, c)] = tid
+        self._blink(tid, BLINK_CYCLES)
+
+
+    def _hide_tile(self, rect_id: int) -> None:
+        self.itemconfig(rect_id, fill=HIDDEN_FILL, width=1, outline=GRID_OUTLINE)
+
+
+    def _blink(self, tid: int, cycles: int) -> None:
         if cycles == 0:
             self.itemconfig(tid, fill="red")
             return
@@ -183,7 +196,7 @@ class TkUI(tk.Canvas):
         )
 
     # game-over fireworks
-    def _on_game_over(self, outcome: GameState, *_):
+    def _on_game_over(self, outcome: GameState, *_) -> None:
         banner_colour = "green" if outcome is GameState.WON else "red"
         self.create_text(
             self.winfo_reqwidth() // 2,
@@ -191,4 +204,24 @@ class TkUI(tk.Canvas):
             text=f"Game {outcome.name}!",
             font=("Consolas", 20, "bold"),
             fill=banner_colour,
+        )
+
+    def _display_mine(self, coords: tuple[int, int], *_) -> None:
+        r, c = coords[0], coords[1]
+        rect_id = self._rect[coords]
+
+        self.itemconfig(rect_id, width=3, fill=REVEALED_FILL, outline="red")
+
+        tid = self.create_text(
+            c * self.cpx + self.cpx // 2,
+            r * self.cpx + self.cpx // 2,
+            text="💣",
+            font=FONT,
+        )
+
+        self._text[coords] = tid
+
+        self.after(
+            FLASH_MS*100,
+            lambda rid=rect_id: self.itemconfig(rid, width=1, outline=GRID_OUTLINE),
         )

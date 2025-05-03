@@ -8,3 +8,4 @@ class Event(Enum):
     GAME_START = auto()
     NEED_GUESS  = auto()    # UI should start accepting clicks
     GUESS_DONE  = auto()    # UI should ignore clicks again
+    REVEAL_MINE = auto()

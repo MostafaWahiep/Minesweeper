@@ -38,6 +38,7 @@ class GameController:
 
         if self.board.lost():
             self.state = GameState.LOST
+            self.bus.publish(Event.REVEAL_MINE, (move.r, move.c))
             self.bus.publish(Event.GAME_OVER, self.state)
         else:
             finished, auto_flagged = self.board.is_finished()
