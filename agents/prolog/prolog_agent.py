@@ -38,8 +38,6 @@ class PrologAgent(AbstractAgent):
     def choose_action(self, view: BoardView) -> Move:
         if not self._moves:
             # deduce new moves
-            self._engine.feed_revealed_cells(self._new_reveals)
-            self._new_reveals.clear()
             moves = self._engine.deduce()
             self._pack_moves(moves)
 
@@ -58,7 +56,8 @@ class PrologAgent(AbstractAgent):
             if state is not CellState.REVEALED:
                 continue
 
-            self._new_reveals.append((row, col, number))
+            self._engine.feed_revealed_cell(row, col, number)
+
             
 
     def _pack_moves(self, moves: list[tuple[int, int, str]]) -> None:

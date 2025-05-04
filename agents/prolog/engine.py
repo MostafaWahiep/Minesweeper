@@ -19,8 +19,16 @@ class PrologEngine:
         self._prolog.query("retractall(_).")
 
     def deduce(self) -> list[tuple[int, int, str]]:
-        mines = self._prolog.query("sure_mine(X, Y).")
-        reveals = self._prolog.query("can_reveal(X, Y).")
+        mines = list(self._prolog.query("single_sure_mine(X, Y)."))
+        reveals = list(self._prolog.query("single_can_reveal(X, Y)."))
+
+        if not mines and not reveals:
+            mines = list(self._prolog.query("subset_mine(X, Y).", maxresult=1))
+            reveals = list(self._prolog.query("subset_safe(X, Y).", maxresult=1))
+
+        if not mines and not reveals:
+            mines = list(self._prolog.query("diff_mine(X, Y).", maxresult=1))
+            reveals = list(self._prolog.query("diff_safe(X, Y).", maxresult=1))
 
         unique_mines = {(d["X"], d["Y"]) for d in mines}
         unique_reveals = {(d["X"], d["Y"]) for d in reveals}
@@ -34,13 +42,11 @@ class PrologEngine:
             moves.append((row, col, 'r'))
 
         return moves
-
         
-    def feed_revealed_cells(self, cells: list[tuple[int, int, int]]) -> None:
-        for row, col, val in cells:
-            predicate = str(Predicates.REVEALED)
-            fact = f"{predicate}({row}, {col}, {val})"
-            self._prolog.assertz(fact)
+    def feed_revealed_cell(self, row: int, col: int, val: int) -> None:
+        predicate = str(Predicates.REVEALED)
+        fact = f"{predicate}({row}, {col}, {val})"
+        self._prolog.assertz(fact)
 
 
     def initialize_dimensions(self, rows:int , cols:int ) -> None:
