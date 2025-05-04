@@ -1,3 +1,4 @@
+:- use_module(library(ordsets)).   % gives ord_subset/2, ord_subtract/3
 :- dynamic revealed/3, flagged/2, rows/1, cols/1.        %  row-col-number  /  flagged
 
 
@@ -40,6 +41,11 @@ unknown_neighbours(R,C,Unks,Qty) :-
             (neighbor(R,C,UR,UC), unknown(UR,UC)),
             Unks),
     length(Unks,Qty).
+
+% unknown neighbours in ordset form
+unk_neigh_set(R,C,USet) :-
+    findall([UR,UC], (neighbor(R,C,UR,UC), unknown(UR,UC)), L),
+    sort(L, USet).                 % guarantees ordering & de‑dupes
 
 
 subset_sorted([], _).
@@ -87,5 +93,51 @@ subset_safe(R,C) :-
     member([R,C], SafeDiff).
 
 
-sure_mine(R,C) :- single_sure_mine(R,C) ; subset_mine(R,C).
-can_reveal(R,C) :- single_can_reveal(R,C) ; subset_safe(R,C).
+diff_mine(R,C) :-
+    % First clue (usually the one with more mines left)
+    revealed(R1,C1,_),
+    remaining_mines(R1,C1,M1), M1 > 0,
+    unk_neigh_set(R1,C1,U1),
+
+    % Second clue
+    revealed(R2,C2,_), (R1 \= R2 ; C1 \= C2),
+    remaining_mines(R2,C2,M2),
+    unk_neigh_set(R2,C2,U2),
+
+    % Decide which is the 'big' constraint
+    (   M1 > M2
+    ->  Ubig = U1, Usmall = U2, Delta is M1 - M2
+    ;   M2 > M1
+    ->  Ubig = U2, Usmall = U1, Delta is M2 - M1
+    ;   fail
+    ),
+
+    ord_subtract(Ubig, Usmall, OnlyBig),
+    length(OnlyBig, Delta),
+    member([R,C], OnlyBig).
+
+
+diff_safe(R,C) :-
+    revealed(R1,C1,_),
+    remaining_mines(R1,C1,M),                    % mines left in clue‑1
+    unk_neigh_set(R1,C1,U1), length(U1,L1),
+
+    revealed(R2,C2,_),
+    ( R2 > R1 ; R2 = R1, C2 > C1 ),             % enforce ordering → no dup
+    remaining_mines(R2,C2,M),                   % same mines   (EARLY TEST)
+    unk_neigh_set(R2,C2,U2), length(U2,L2),
+
+    L1 \= L2,                                   % equal size ⇒ no deduction
+    (   L1 < L2                                 % decide direction once
+    ->  ord_subset(U1,U2), ord_subtract(U2,U1,SafeDiff)
+    ;   ord_subset(U2,U1), ord_subtract(U1,U2,SafeDiff)
+    ), !,                                       % cut: deterministic now
+    member([R,C], SafeDiff).
+
+sure_mine(X,Y)  :- single_sure_mine(X,Y).
+sure_mine(X,Y)  :- subset_mine(X,Y).
+sure_mine(X,Y)  :- diff_mine(X,Y).
+
+can_reveal(X,Y) :- single_can_reveal(X,Y).
+can_reveal(X,Y) :- subset_safe(X,Y).
+can_reveal(X,Y) :- diff_safe(X,Y).
