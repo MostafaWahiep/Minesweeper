@@ -16,7 +16,7 @@ expert = GameConfig(30, 16, 99)
 cfg = expert
 
 counter = 0
-while counter < 1:
+while counter < 50:
     counter += 1
     board = Board(cfg)
     bus   = EventBus()
